@@ -125,13 +125,11 @@ namespace StarlightDirector.UI.Controls {
                 var ns = start.Note;
                 var ne = end.Note;
                 if (mode == EditMode.ResetNote) {
-                    ns.Reset();
-                    LineLayer.NoteRelations.RemoveAll(start, NoteRelation.Hold);
-                    LineLayer.NoteRelations.RemoveAll(start, NoteRelation.FlickOrSlide);
+                    ns.ResetConnection();
+                    LineLayer.NoteRelations.RemoveAllConnections(start);
                     if (!start.Equals(end)) {
-                        ne.Reset();
-                        LineLayer.NoteRelations.RemoveAll(end, NoteRelation.Hold);
-                        LineLayer.NoteRelations.RemoveAll(end, NoteRelation.FlickOrSlide);
+                        ne.ResetConnection();
+                        LineLayer.NoteRelations.RemoveAllConnections(end);
                     }
                     LineLayer.InvalidateVisual();
                     Project.IsChanged = true;
@@ -147,17 +145,17 @@ namespace StarlightDirector.UI.Controls {
                     var second = first.Equals(ns) ? ne : ns;
                     if (ns.Bar == ne.Bar && ns.IndexInGrid == ne.IndexInGrid && !ns.IsSync && !ne.IsSync) {
                         // sync
-                        Note.ConnectSync(ns, ne);
+                        Note.ConnectSync(first, second);
                         LineLayer.NoteRelations.Add(start, end, NoteRelation.Sync);
                         LineLayer.InvalidateVisual();
                     } else if (ns.FinishPosition != ne.FinishPosition && (ns.Bar != ne.Bar || ns.IndexInGrid != ne.IndexInGrid) && (!ns.IsHoldStart && !ne.IsHoldStart) && (first.IsSlide == second.IsSlide)) {
                         // flick
-                        if (first.HasNextFlickOrSlide || second.HasPrevFlickOrSlide) {
+                        if (first.HasNextConnect || second.HasPrevConnect) {
                             MessageBox.Show(Application.Current.FindResource<string>(App.ResourceKeys.FlickRelationIsFullPrompt), App.Title, MessageBoxButton.OK, MessageBoxImage.Exclamation);
                             return;
                         }
                         Note.ConnectFlick(first, second);
-                        LineLayer.NoteRelations.Add(start, end, NoteRelation.FlickOrSlide);
+                        LineLayer.NoteRelations.Add(start, end, NoteRelation.Flick);
                         LineLayer.InvalidateVisual();
                     } else if (ns.FinishPosition == ne.FinishPosition && !ns.IsHold && !ne.IsHold && !first.IsFlick && !first.IsSlide && !second.IsSlide) {
                         // hold
@@ -166,7 +164,7 @@ namespace StarlightDirector.UI.Controls {
                             MessageBox.Show(Application.Current.FindResource<string>(App.ResourceKeys.InvalidHoldCreationPrompt), App.Title, MessageBoxButton.OK, MessageBoxImage.Exclamation);
                             return;
                         }
-                        Note.ConnectHold(ns, ne);
+                        Note.ConnectHold(first, second);
                         LineLayer.NoteRelations.Add(start, end, NoteRelation.Hold);
                         LineLayer.InvalidateVisual();
                     } else {
@@ -228,6 +226,11 @@ namespace StarlightDirector.UI.Controls {
                 noteTypeString = "Tap";
             } else if (note.IsFlick) {
                 noteTypeString = "Flick";
+                if (note.IsHold) {
+                    noteTypeString += " (hold end)";
+                } else if (note.IsSlide) {
+                    noteTypeString += " (slide end)";
+                }
             } else if (note.IsHold) {
                 noteTypeString = "Hold";
             } else if (note.IsSlide) {

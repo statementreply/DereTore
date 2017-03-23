@@ -89,14 +89,14 @@
         </Canvas>
         <!-- Hold note -->
         <Canvas Width="{StaticResource OuterBorderSize}" Height="{StaticResource OuterBorderSize}"
-                Visibility="{Binding ElementName=Me, Path=Note.IsHold, Converter={StaticResource NullableBooleanToVisibilityConverter}, Mode=OneWay}">
+                Visibility="{Binding ElementName=Me, Path=Note.ShouldBeRenderedAsHold, Converter={StaticResource NullableBooleanToVisibilityConverter}, Mode=OneWay}">
             <Ellipse Width="{StaticResource OuterBorderSize}" Height="{StaticResource OuterBorderSize}" Fill="{StaticResource NoteShapeOutlineFill}" Stroke="{Binding ElementName=Me, Path=Stroke, Mode=OneWay}" StrokeThickness="1.5"/>
             <Ellipse Width="{StaticResource HoldInnerBorderSize1}" Height="{StaticResource HoldInnerBorderSize1}" Margin="4" Stroke="{StaticResource HoldNoteShapeStroke}" Fill="{StaticResource HoldNoteShapeFillOuter}"/>
             <Ellipse Width="{StaticResource HoldInnerBorderSize2}" Height="{StaticResource HoldInnerBorderSize2}" Margin="10" Fill="{StaticResource HoldNoteShapeFillInner}"/>
         </Canvas>
         <!-- Flick note -->
         <Canvas Width="{StaticResource OuterBorderSize}" Height="{StaticResource OuterBorderSize}" RenderTransformOrigin="0.5 0.5"
-                Visibility="{Binding ElementName=Me, Path=Note.ShouldBeRenderedAsFlick, Converter={StaticResource NullableBooleanToVisibilityConverter}, Mode=OneWay}">
+                Visibility="{Binding ElementName=Me, Path=Note.IsFlick, Converter={StaticResource NullableBooleanToVisibilityConverter}, Mode=OneWay}">
             <Path Stroke="{Binding ElementName=Me, Path=Stroke, Mode=OneWay}" StrokeThickness="1.5" Data="M 36,15 A 24,24 0 0 0 15,0 A 15,15 0 0 0 15,30 A 24,24 0 0 0 36,15 Z" Fill="{StaticResource NoteShapeOutlineFill}"/>
             <Path Stroke="{StaticResource FlickNoteShapeStroke}" Fill="{StaticResource FlickNoteShapeFillOuter}" Width="26" Height="30" Canvas.Left="5" Data="M 36,15 A 24,24 0 0 0 15,0 A 15,15 0 0 0 15,30 A 24,24 0 0 0 36,15 Z" Stretch="Uniform"/>
             <Path Fill="{StaticResource FlickNoteShapeFillInner}" Width="12" Height="30" Canvas.Left="17" Data="M 36,15 C 24,-2 16,-2 15,15 C 16,32 24,32 36,15 Z" Stretch="Uniform"/>

@@ -22,6 +22,7 @@ namespace StarlightDirector.UI.Controls.Primitives {
             var syncPen = new Pen(RelationBrush, SyncNoteLineThickness);
             var flickPen = new Pen(RelationBrush, ConnectedNoteLineThickness);
             var holdPen = new Pen(RelationBrush, ConnectedNoteLineThickness);
+            var slidePen = new Pen(RelationBrush, ConnectedNoteLineThickness);
             foreach (var relation in NoteRelations) {
                 var note1 = relation.ScoreNote1;
                 var note2 = relation.ScoreNote2;
@@ -33,11 +34,14 @@ namespace StarlightDirector.UI.Controls.Primitives {
                     case NoteRelation.Sync:
                         pen = syncPen;
                         break;
-                    case NoteRelation.FlickOrSlide:
+                    case NoteRelation.Flick:
                         pen = flickPen;
                         break;
                     case NoteRelation.Hold:
                         pen = holdPen;
+                        break;
+                    case NoteRelation.Slide:
+                        pen = slidePen;
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(relation.Relation));

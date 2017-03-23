@@ -97,9 +97,9 @@ namespace StarlightDirector.UI.Windows {
                 var note = scoreNote.Note;
                 // A rule: in a hold pair, the latter one always follows the trail of the former one.
                 if (note.IsHoldStart) {
-                    note.HoldTarget.StartPosition = note.StartPosition = startPosition;
+                    note.NextConnectNote.StartPosition = note.StartPosition = startPosition;
                 } else if (note.IsHoldEnd) {
-                    note.StartPosition = note.HoldTarget.StartPosition;
+                    note.StartPosition = note.PrevConnectNote.StartPosition;
                 } else {
                     note.StartPosition = startPosition;
                 }
@@ -134,7 +134,7 @@ namespace StarlightDirector.UI.Windows {
                     return;
                 case 1:
                     var note = scoreNotes[0].Note;
-                    if (note.HasPrevFlickOrSlide || note.HasNextFlickOrSlide) {
+                    if (note.HasPrevConnect || note.HasNextConnect) {
                         e.CanExecute = false;
                         return;
                     }
@@ -149,7 +149,7 @@ namespace StarlightDirector.UI.Windows {
                     e.CanExecute = false;
                     return;
                 }
-                var prevNote = note.PrevFlickOrSlideNote;
+                var prevNote = note.PrevConnectNote;
                 if (prevNote != null && prevNote != groupPrevNote && !prevNote.IsSlide) {
                     e.CanExecute = false;
                     return;

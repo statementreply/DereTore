@@ -177,9 +177,9 @@ namespace StarlightDirector.Exchange.Deleste {
             // Fix hold notes: if any line crosses other note(s). (Is it necessary? Deleste files seem to be organized well.)
             foreach (var note in score.Notes) {
                 if (note.IsHoldStart) {
-                    var between = score.Notes.GetFirstNoteBetween(note, note.HoldTarget);
+                    var between = score.Notes.GetFirstNoteBetween(note, note.NextConnectNote);
                     if (between != null) {
-                        note.HoldTarget = between;
+                        Note.ConnectHold(note, between);
                     }
                 }
             }

@@ -3,8 +3,8 @@
 
         None,
         Sync,
-        FlickOrSlide,
-        Hold
-
+        Flick,
+        Hold,
+        Slide,
     }
 }

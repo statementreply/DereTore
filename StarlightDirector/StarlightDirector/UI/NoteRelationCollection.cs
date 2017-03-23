@@ -36,6 +36,12 @@ namespace StarlightDirector.UI {
             return n;
         }
 
+        public int RemoveAllConnections(ScoreNote oneOf) {
+            return RemoveAll(oneOf, NoteRelation.Flick)
+                + RemoveAll(oneOf, NoteRelation.Hold)
+                + RemoveAll(oneOf, NoteRelation.Slide);
+        }
+
         public int RemoveAll(ScoreNote oneOf, NoteRelation relation) {
             var contained = InternalDictionary.Where(kv => (kv.Key.Item1.Equals(oneOf) || kv.Key.Item2.Equals(oneOf)) && kv.Value == relation).ToArray();
             var n = 0;

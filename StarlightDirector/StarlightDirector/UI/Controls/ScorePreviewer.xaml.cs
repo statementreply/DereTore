@@ -88,11 +88,11 @@ namespace StarlightDirector.UI.Controls {
                     continue;
 
                 NoteDrawType drawType;
-                if (note.IsHoldStart || (note.IsHoldEnd && note.IsTap)) {
-                    drawType = NoteDrawType.Hold;
-                } else if (note.ShouldBeRenderedAsFlick) {
+                if (note.IsFlick) {
                     drawType = (NoteDrawType)note.FlickType;
-                } else if (note.ShouldBeRenderedAsSlide) {
+                } else if (note.IsHold) {
+                    drawType = NoteDrawType.Hold;
+                } else if (note.IsSlide) {
                     drawType = NoteDrawType.Slide;
                 } else {
                     drawType = NoteDrawType.Tap;
@@ -110,7 +110,7 @@ namespace StarlightDirector.UI.Controls {
                 };
 
                 if (note.IsHoldStart) {
-                    snote.Duration = (int)(note.HoldTarget.HitTiming * 1000) - (int)(note.HitTiming * 1000);
+                    snote.Duration = (int)(note.NextConnectNote.HitTiming * 1000) - (int)(note.HitTiming * 1000);
                 }
 
                 // skip notes that are done before start time
@@ -138,15 +138,13 @@ namespace StarlightDirector.UI.Controls {
             // prepare note relationships
 
             foreach (var snote in _notes) {
-                if (snote.IsHoldStart) {
-                    snote.HoldTarget = _notes.FirstOrDefault(note => note.Note.ID == snote.Note.HoldTargetID);
-                }
-
                 if (snote.Note.HasNextSync) {
                     snote.SyncTarget = _notes.FirstOrDefault(note => note.Note.ID == snote.Note.NextSyncTarget.ID);
                 }
 
-                if (snote.Note.HasNextFlickOrSlide) {
+                if (snote.IsHoldStart) {
+                    snote.HoldTarget = _notes.FirstOrDefault(note => note.Note.ID == snote.Note.HoldTargetID);
+                } else if (snote.Note.HasNextConnect) {
                     snote.GroupTarget = _notes.FirstOrDefault(note => note.Note.ID == snote.Note.NextFlickOrSlideNoteID);
                 }
             }

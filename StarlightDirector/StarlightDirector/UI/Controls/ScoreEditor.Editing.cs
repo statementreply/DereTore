@@ -162,8 +162,8 @@ namespace StarlightDirector.UI.Controls {
                         LineLayer.NoteRelations.Add(prevScoreNote, nextScoreNote, NoteRelation.Sync);
                     }
                     note.RemoveSync();
-                    // The Reset() call is necessary.
-                    note.Reset();
+                    // The ResetConnection() call is necessary.
+                    note.ResetConnection();
                     note.Bar.RemoveNote(note);
                 }
             }

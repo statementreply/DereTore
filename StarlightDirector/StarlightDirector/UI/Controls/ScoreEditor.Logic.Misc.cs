@@ -90,22 +90,16 @@ namespace StarlightDirector.UI.Controls {
                         waitingList.Enqueue(note.NextSyncTarget);
                     }
                 }
-                if (note.HasNextFlickOrSlide) {
-                    if (!relations.ContainsPair(map[note.ID], map[note.NextFlickOrSlideNote.ID])) {
-                        relations.Add(map[note.ID], map[note.NextFlickOrSlideNote.ID], NoteRelation.FlickOrSlide);
-                        waitingList.Enqueue(note.NextFlickOrSlideNote);
+                if (note.HasNextConnect) {
+                    if (!relations.ContainsPair(map[note.ID], map[note.NextConnectNote.ID])) {
+                        relations.Add(map[note.ID], map[note.NextConnectNote.ID], note.NextConnectRelation);
+                        waitingList.Enqueue(note.NextConnectNote);
                     }
                 }
-                if (note.HasPrevFlickOrSlide) {
-                    if (!relations.ContainsPair(map[note.ID], map[note.PrevFlickOrSlideNote.ID])) {
-                        relations.Add(map[note.ID], map[note.PrevFlickOrSlideNote.ID], NoteRelation.FlickOrSlide);
-                        waitingList.Enqueue(note.PrevFlickOrSlideNote);
-                    }
-                }
-                if (note.IsHoldStart) {
-                    if (!relations.ContainsPair(map[note.ID], map[note.HoldTarget.ID])) {
-                        relations.Add(map[note.ID], map[note.HoldTarget.ID], NoteRelation.Hold);
-                        waitingList.Enqueue(note.HoldTarget);
+                if (note.HasPrevConnect) {
+                    if (!relations.ContainsPair(map[note.ID], map[note.PrevConnectNote.ID])) {
+                        relations.Add(map[note.ID], map[note.PrevConnectNote.ID], note.PrevConnectRelation);
+                        waitingList.Enqueue(note.PrevConnectNote);
                     }
                 }
             }

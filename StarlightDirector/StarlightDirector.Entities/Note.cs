@@ -69,34 +69,22 @@ namespace StarlightDirector.Entities {
         [JsonProperty("prevFlickNoteID")]
         public int PrevFlickOrSlideNoteID { get; internal set; }
 
-        public Note PrevFlickOrSlideNote {
-            get { return _prevFlickOrSlideNote; }
-            set {
-                UpdateFlickTypeStep1(value);
-                _prevFlickOrSlideNote = value;
-                UpdateFlickTypeStep2();
-                PrevFlickOrSlideNoteID = value?.ID ?? EntityID.Invalid;
-                DecideRenderingAsFlickOrSlide();
-            }
+        public Note PrevConnectNote {
+            get { return _prevConnectNote; }
+            internal set { SetPrevConnectNoteInternal(value); }
         }
 
-        public bool HasPrevFlickOrSlide => (Type == NoteType.TapOrFlick || Type == NoteType.Slide) && PrevFlickOrSlideNote != null;
+        public bool HasPrevConnect => PrevConnectNote != null;
 
         [JsonProperty("nextFlickNoteID")]
         public int NextFlickOrSlideNoteID { get; internal set; }
 
-        public Note NextFlickOrSlideNote {
-            get { return _nextFlickOrSlideNote; }
-            set {
-                UpdateFlickTypeStep1(value);
-                _nextFlickOrSlideNote = value;
-                UpdateFlickTypeStep2();
-                NextFlickOrSlideNoteID = value?.ID ?? EntityID.Invalid;
-                DecideRenderingAsFlickOrSlide();
-            }
+        public Note NextConnectNote {
+            get { return _nextConnectNote; }
+            internal set { SetNextConnectNoteInternal(value); }
         }
 
-        public bool HasNextFlickOrSlide => (Type == NoteType.TapOrFlick || Type == NoteType.Slide) && NextFlickOrSlideNote != null;
+        public bool HasNextConnect => NextConnectNote != null;
 
         [Obsolete("This property is provided for forward compatibility only.")]
         [JsonProperty]
@@ -145,43 +133,48 @@ namespace StarlightDirector.Entities {
             private set { SetValue(IsHoldProperty, value); }
         }
 
-        public bool IsHoldStart => Type == NoteType.Hold && HoldTarget != null;
+        public bool IsHoldStart => Type == NoteType.Hold && NextConnectNote != null;
 
-        public bool IsHoldEnd => Type == NoteType.TapOrFlick && HoldTarget != null;
+        public bool IsHoldEnd => PrevConnectNote?.IsHoldStart ?? false;
 
         [JsonProperty]
         public int HoldTargetID { get; internal set; }
-
-        public Note HoldTarget {
-            get { return _holdTarget; }
-            set {
-                var origHoldTarget = _holdTarget;
-                _holdTarget = value;
-                if (origHoldTarget?.HoldTarget != null && origHoldTarget.HoldTarget.Equals(this)) {
-                    origHoldTarget.HoldTarget = null;
-                }
-                IsHold = value != null;
-                // Only the former of the hold pair is considered as a hold note. The other is a tap or flick note.
-                Type = (value != null && value > this) ? NoteType.Hold : NoteType.TapOrFlick;
-                HoldTargetID = value?.ID ?? EntityID.Invalid;
-            }
-        }
-
+        
         public bool IsSlide {
             get { return (bool)GetValue(IsSlideProperty); }
             private set { SetValue(IsSlideProperty, value); }
         }
 
-        public bool IsSlideStart => Type == NoteType.Slide && !HasPrevFlickOrSlide && HasNextFlickOrSlide;
+        public bool IsSlideStart => Type == NoteType.Slide && !HasPrevConnect && HasNextConnect;
 
-        public bool IsSlideContinuation => Type == NoteType.Slide && HasPrevFlickOrSlide && HasNextFlickOrSlide && PrevFlickOrSlideNote.IsSlide && NextFlickOrSlideNote.IsSlide;
+        public bool IsSlideContinuation => Type == NoteType.Slide && HasPrevConnect && HasNextConnect && PrevConnectNote.IsSlide && NextConnectNote.IsSlide;
 
-        public bool IsSlideEnd => Type == NoteType.Slide && !HasNextFlickOrSlide && HasPrevFlickOrSlide;
+        public bool IsSlideEnd => Type == NoteType.Slide && !HasNextConnect && HasPrevConnect;
 
         public bool IsTap {
             get { return (bool)GetValue(IsTapProperty); }
             private set { SetValue(IsTapProperty, value); }
         }
+
+        public NoteRelation NextConnectRelation {
+            get {
+                if (NextConnectNote == null) {
+                    return NoteRelation.None;
+                } else if (IsFlick) {
+                    // A note can be flick begin and hold/slide end at the same time
+                    // Thus IsFlick should be checked first
+                    return NoteRelation.Flick;
+                } else if (IsHold) {
+                    return NoteRelation.Hold;
+                } else if (IsSlide) {
+                    return NoteRelation.Slide;
+                } else {
+                    return NoteRelation.None;
+                }
+            }
+        }
+
+        public NoteRelation PrevConnectRelation => PrevConnectNote?.NextConnectRelation ?? NoteRelation.None;
 
         public bool IsGamingNote => IsTypeGaming(Type);
 
@@ -192,9 +185,9 @@ namespace StarlightDirector.Entities {
             set { SetValue(ExtraParamsProperty, value); }
         }
 
-        public bool ShouldBeRenderedAsFlick {
-            get { return (bool)GetValue(ShouldBeRenderedAsFlickProperty); }
-            private set { SetValue(ShouldBeRenderedAsFlickProperty, value); }
+        public bool ShouldBeRenderedAsHold {
+            get { return (bool)GetValue(ShouldBeRenderedAsHoldProperty); }
+            private set { SetValue(ShouldBeRenderedAsHoldProperty, value); }
         }
 
         public bool ShouldBeRenderedAsSlide {
@@ -232,7 +225,7 @@ namespace StarlightDirector.Entities {
         public static readonly DependencyProperty ExtraParamsProperty = DependencyProperty.Register(nameof(ExtraParams), typeof(NoteExtraParams), typeof(Note),
             new PropertyMetadata(null, OnExtraParamsChanged));
 
-        public static readonly DependencyProperty ShouldBeRenderedAsFlickProperty = DependencyProperty.Register(nameof(ShouldBeRenderedAsFlick), typeof(bool), typeof(Note),
+        public static readonly DependencyProperty ShouldBeRenderedAsHoldProperty = DependencyProperty.Register(nameof(ShouldBeRenderedAsHold), typeof(bool), typeof(Note),
             new PropertyMetadata(false));
 
         public static readonly DependencyProperty ShouldBeRenderedAsSlideProperty = DependencyProperty.Register(nameof(ShouldBeRenderedAsSlide), typeof(bool), typeof(Note),
@@ -358,21 +351,85 @@ namespace StarlightDirector.Entities {
         }
 
         public static void ConnectFlick(Note first, Note second) {
-            if (first != null) {
-                first.NextFlickOrSlideNote = second;
+            if (first == null) {
+                second?.ResetPrevConnection();
+                return;
             }
-            if (second != null) {
-                second.PrevFlickOrSlideNote = first;
+            if (second == null) {
+                first?.ResetNextConnection();
+                return;
             }
+            if (first.IsFlick && first.NextConnectNote == second) {
+                return;
+            }
+            first.ResetNextConnection();
+            second.ResetPrevConnection();
+            // Set first
+            first.Type = NoteType.TapOrFlick;
+            first.NextConnectNote = second;
+            // Set second
+            if (!(second.IsTap || second.IsFlick)) {
+                second.ResetNextConnection();
+            }
+            second.Type = NoteType.TapOrFlick;
+            second.PrevConnectNote = first;
         }
 
-        public static void ConnectHold(Note n1, Note n2) {
-            if (n1 != null) {
-                n1.HoldTarget = n2;
+        public static void ConnectHold(Note first, Note second) {
+            if (first == null) {
+                second?.ResetPrevConnection();
+                return;
             }
-            if (n2 != null) {
-                n2.HoldTarget = n1;
+            if (second == null) {
+                first?.ResetNextConnection();
+                return;
             }
+            if (first.IsHoldStart && first.NextConnectNote == second) {
+                return;
+            }
+            first.ResetNextConnection();
+            second.ResetPrevConnection();
+            // Set first
+            // There shouldn't be pre-connection on hold start notes
+            first.ResetPrevConnection();
+            first.Type = NoteType.Hold;
+            first.NextConnectNote = second;
+            // Set second
+            // Flick is the only post-connection type allowed on hold end notes
+            if (!(second.IsTap || second.IsFlick)) {
+                second.ResetNextConnection();
+            }
+            // Only the former of the hold pair is considered as a hold note. The other is a tap or flick note.
+            second.Type = NoteType.TapOrFlick;
+            second.PrevConnectNote = first;
+        }
+
+        public static void ConnectSlide(Note first, Note second) {
+            if (first == null) {
+                second?.ResetPrevConnection();
+                return;
+            }
+            if (second == null) {
+                first?.ResetNextConnection();
+                return;
+            }
+            if (first.IsSlide && first.NextConnectNote == second) {
+                return;
+            }
+            first.ResetNextConnection();
+            second.ResetPrevConnection();
+            // Set first
+            if (!(first.IsTap || first.IsSlide)) {
+                first.ResetPrevConnection();
+            }
+            first.Type = NoteType.Slide;
+            first.NextConnectNote = second;
+            // Set second
+            if (!(second.IsTap || second.IsSlide || second.IsFlick)) {
+                second.ResetNextConnection();
+            }
+            second.Type = NoteType.Slide;
+            second.PrevConnectNote = first;
         }
 
         internal int GroupID { get; set; }
@@ -388,34 +445,31 @@ namespace StarlightDirector.Entities {
             FlickType = NoteFlickType.Tap;
         }
 
-        internal void Reset() {
-            if (NextFlickOrSlideNote != null) {
-                var next = NextFlickOrSlideNote;
-                next.PrevFlickOrSlideNote = null;
-                if (next.IsSlide && !next.IsSlideStart) {
-                    next.Type = NoteType.TapOrFlick;
-                }
+        internal void ResetPrevConnection() {
+            if (PrevConnectNote == null) {
+                return;
             }
-            NextFlickOrSlideNote = null;
-            if (PrevFlickOrSlideNote != null) {
-                var prev = PrevFlickOrSlideNote;
-                prev.NextFlickOrSlideNote = null;
-                if (prev.IsSlide && !prev.IsSlideEnd) {
-                    prev.Type = NoteType.TapOrFlick;
-                }
+            Type = NextConnectNote?.Type ?? NoteType.TapOrFlick;
+            // Reset PrevConnectNote first, otherwise calling ResetNextConnection will lead to infinite recursion
+            var oldPrevConnectNote = PrevConnectNote;
+            PrevConnectNote = null;
+            oldPrevConnectNote.ResetNextConnection();
+        }
+
+        internal void ResetNextConnection() {
+            if (NextConnectNote == null) {
+                return;
             }
-            PrevFlickOrSlideNote = null;
-            if (HoldTarget != null) {
-                var hold = HoldTarget;
-                hold.HoldTarget = null;
-                if (hold != null) {
-                    if (!hold.HasNextFlickOrSlide && !hold.HasPrevFlickOrSlide && hold.FlickType != NoteFlickType.Tap) {
-                        hold.FlickType = NoteFlickType.Tap;
-                    }
-                }
-            }
-            FlickType = NoteFlickType.Tap;
-            HoldTarget = null;
+            Type = PrevConnectNote?.Type ?? NoteType.TapOrFlick;
+            // Reset NextConnectNote first, otherwise calling ResetPrevConnection will lead to infinite recursion
+            var oldNextConnectNote = NextConnectNote;
+            NextConnectNote = null;
+            oldNextConnectNote.ResetPrevConnection();
+        }
+
+        internal void ResetConnection() {
+            ResetPrevConnection();
+            ResetNextConnection();
         }
 
         internal void SetSpecialType(NoteType type) {
@@ -435,25 +489,19 @@ namespace StarlightDirector.Entities {
 
         private static void OnTypeChanged(DependencyObject obj, DependencyPropertyChangedEventArgs e) {
             var note = (Note)obj;
-            note.IsFlick = note.IsFlickInternal();
-            note.IsTap = note.IsTapInternal();
-            note.IsSlide = note.IsSlideInternal();
-            note.UpdateFlickTypeStep2();
-            note.DecideRenderingAsFlickOrSlide();
-
-            if (note.IsFlick) {
-                note.UpdateAsFlickNote();
-            } else if (note.IsSlide) {
-                note.UpdateAsSlideNote();
-            }
+            note.UpdateNoteType();
+            note.UpdateFlickType();
+            note.PrevConnectNote?.UpdateFlickType();
+            // IsHold and IsTap are dependent on PrevConnectNote
+            note.NextConnectNote?.UpdateNoteType();
+            note.NextConnectNote?.UpdateFlickType();
+            note.UpdateNextConnectID();
+            note.NextConnectNote?.UpdatePrevConnectID();
         }
 
         private static void OnFlickTypeChanged(DependencyObject obj, DependencyPropertyChangedEventArgs e) {
             var note = (Note)obj;
-            note.IsFlick = note.IsFlickInternal();
-            note.IsTap = note.IsTapInternal();
-            note.IsSlide = note.IsSlideInternal();
-            note.DecideRenderingAsFlickOrSlide();
+            note.UpdateNoteType();
         }
 
         private static void OnExtraParamsChanged(DependencyObject obj, DependencyPropertyChangedEventArgs e) {
@@ -468,63 +516,81 @@ namespace StarlightDirector.Entities {
             }
         }
 
-        private void UpdateFlickTypeStep1(Note value) {
-            var n1 = PrevFlickOrSlideNote;
-            var n2 = NextFlickOrSlideNote;
-            if (IsSlide) {
-                FlickType = NoteFlickType.Tap;
-            } else {
-                if (n1 == null && n2 == null && value != null) {
-                    FlickType = FinishPosition >= NotePosition.Center ? NoteFlickType.FlickRight : NoteFlickType.FlickLeft;
-                }
-            }
+        private void UpdateNoteType() {
+            IsFlick = IsFlickInternal();
+            IsTap = IsTapInternal();
+            IsSlide = IsSlideInternal();
+            IsHold = IsHoldInternal();
+            ShouldBeRenderedAsHold = !IsFlick && IsHold;
+            ShouldBeRenderedAsSlide = !IsFlick && IsSlide;
         }
 
-        private void UpdateFlickTypeStep2() {
-            var n1 = PrevFlickOrSlideNote;
-            var n2 = NextFlickOrSlideNote;
-            if (n1 == null && n2 == null) {
-                if (!IsHoldStart) {
-                    FlickType = NoteFlickType.Tap;
-                }
-            } else {
-                // Currently there isn't an example of quick 'Z' turn appeared in CGSS (as shown below),
-                // so the following completion method is good enough.
-                //     -->
-                //      ^
-                //       \
-                //      -->
-                //Debug.Print(HitTiming.ToString(CultureInfo.InvariantCulture));
-                if (IsSlide && (n2 == null || !n2.IsFlick)) {
-                    FlickType = NoteFlickType.Tap;
-                } else {
-                    if (n2 != null) {
-                        FlickType = n2.FinishPosition > FinishPosition ? NoteFlickType.FlickRight : NoteFlickType.FlickLeft;
+        private void UpdateFlickType() {
+            var n1 = PrevConnectNote;
+            var n2 = NextConnectNote;
+            // Currently there isn't an example of quick 'Z' turn appeared in CGSS (as shown below),
+            // so the following completion method is good enough.
+            //     -->
+            //      ^
+            //       \
+            //      -->
+
+            /* How should we set FlickType? (0=Tap, 1=Flick, X=Don't care, Z=Old value)
+            Prev\Curr   TapOrFlick  Hold    Slide   Curr/Next
+            (null)          0       X       X       (null)
+            (null)          1       0       X       TapOrFlick
+            (null)          X       0       X       Hold
+            (null)          X       X       0       Slide
+            TapOrFlick      1       X       X       (null)
+            TapOrFlick      1       X       X       TapOrFlick
+            TapOrFlick      X       X       X       Hold
+            TapOrFlick      X       X       X       Slide
+            Hold            Z       Z       X       (null)
+            Hold            1       1       X       TapOrFlick
+            Hold            X       X       X       Hold
+            Hold            X       X       X       Slide
+            Slide           1       X       0       (null)
+            Slide           1       X       1       TapOrFlick
+            Slide           X       X       X       Hold
+            Slide           X       X       0       Slide
+            Prev/Curr   TapOrFlick  Hold    Slide   Curr\Next
+            */
+            if (n2 != null) {
+                var flickType2 = n2.FinishPosition > FinishPosition ? NoteFlickType.FlickRight : NoteFlickType.FlickLeft;
+                if (n1 != null) {
+                    if (n2.Type == NoteType.TapOrFlick) {
+                        FlickType = flickType2;
                     } else {
-                        FlickType = n1.FinishPosition > FinishPosition ? NoteFlickType.FlickLeft : NoteFlickType.FlickRight;
+                        FlickType = NoteFlickType.Tap;
+                    }
+                } else {
+                    if (Type == NoteType.TapOrFlick) {
+                        FlickType = flickType2;
+                    } else {
+                        FlickType = NoteFlickType.Tap;
                     }
                 }
-            }
-        }
-
-        private void DecideRenderingAsFlickOrSlide() {
-            if (IsFlick || IsSlide) {
-                if (IsSlide) {
-                    ShouldBeRenderedAsSlide = FlickType == NoteFlickType.Tap && (!HasNextFlickOrSlide || !NextFlickOrSlideNote.IsFlick);
+            } else if (n1 != null) {
+                var flickType1 = n1.FinishPosition > FinishPosition ? NoteFlickType.FlickLeft : NoteFlickType.FlickRight;
+                if (n1.Type == NoteType.Hold) {
+                    return;
+                } else if (Type == NoteType.TapOrFlick) {
+                    FlickType = flickType1;
                 } else {
-                    ShouldBeRenderedAsSlide = false;
+                    FlickType = NoteFlickType.Tap;
                 }
-                ShouldBeRenderedAsFlick = !ShouldBeRenderedAsSlide;
             } else {
-                ShouldBeRenderedAsFlick = ShouldBeRenderedAsSlide = false;
+                FlickType = NoteFlickType.Tap;
             }
         }
 
-        private bool IsFlickInternal() => Type == NoteType.TapOrFlick && (FlickType == NoteFlickType.FlickLeft || FlickType == NoteFlickType.FlickRight);
+        private bool IsFlickInternal() => FlickType == NoteFlickType.FlickLeft || FlickType == NoteFlickType.FlickRight;
 
-        private bool IsTapInternal() => Type == NoteType.TapOrFlick && FlickType == NoteFlickType.Tap;
+        private bool IsTapInternal() => Type == NoteType.TapOrFlick && FlickType == NoteFlickType.Tap && PrevConnectNote?.Type != NoteType.Hold;
 
         private bool IsSlideInternal() => Type == NoteType.Slide;
+
+        private bool IsHoldInternal() => Type == NoteType.Hold || PrevConnectNote?.Type == NoteType.Hold;
 
         private void ExtraParams_ParamsChanged(object sender, EventArgs e) {
             // if we a BPM note is changed, inform the Bar to update its timings
@@ -542,25 +608,52 @@ namespace StarlightDirector.Entities {
             IsSync = _prevSyncTarget != null || _nextSyncTarget != null;
         }
 
-        private void UpdateAsSlideNote() {
-            if (HasPrevFlickOrSlide && PrevFlickOrSlideNote.IsSlide) {
-                PrevFlickOrSlideNote.FlickType = NoteFlickType.Tap;
+        private void SetPrevConnectNoteInternal(Note prev) {
+            if (prev == PrevConnectNote) {
+                return;
+            }
+            _prevConnectNote = prev;
+            // IsHold and IsTap are dependent on PrevConnectNote
+            UpdateNoteType();
+            UpdateFlickType();
+            UpdatePrevConnectID();
+        }
+
+        private void SetNextConnectNoteInternal(Note next) {
+            if (next == NextConnectNote) {
+                return;
+            }
+            _nextConnectNote = next;
+            UpdateFlickType();
+            UpdateNextConnectID();
+        }
+
+        private void UpdatePrevConnectID() {
+            var id = PrevConnectNote?.ID ?? EntityID.Invalid;
+            if (IsHoldEnd) {
+                HoldTargetID = id;
+                PrevFlickOrSlideNoteID = EntityID.Invalid;
+            } else {
+                HoldTargetID = EntityID.Invalid;
+                PrevFlickOrSlideNoteID = id;
             }
         }
 
-        private void UpdateAsFlickNote() {
-            if (HasPrevFlickOrSlide && PrevFlickOrSlideNote.IsSlide) {
-                var pos1 = (int)PrevFlickOrSlideNote.FinishPosition;
-                var pos2 = (int)FinishPosition;
-                PrevFlickOrSlideNote.FlickType = pos2 >= pos1 ? NoteFlickType.FlickRight : NoteFlickType.FlickLeft;
+        private void UpdateNextConnectID() {
+            var id = NextConnectNote?.ID ?? EntityID.Invalid;
+            if (IsHoldStart) {
+                HoldTargetID = id;
+                NextFlickOrSlideNoteID = EntityID.Invalid;
+            } else {
+                HoldTargetID = EntityID.Invalid;
+                NextFlickOrSlideNoteID = id;
             }
         }
 
-        private Note _prevFlickOrSlideNote;
-        private Note _nextFlickOrSlideNote;
+        private Note _prevConnectNote;
+        private Note _nextConnectNote;
         private Note _prevSyncTarget;
         private Note _nextSyncTarget;
-        private Note _holdTarget;
 
     }
 }

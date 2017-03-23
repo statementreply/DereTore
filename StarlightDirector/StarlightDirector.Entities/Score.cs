@@ -109,13 +109,24 @@ namespace StarlightDirector.Entities {
                     continue;
                 }
                 if (note.NextFlickOrSlideNoteID != EntityID.Invalid) {
-                    note.NextFlickOrSlideNote = FindNoteByID(note.NextFlickOrSlideNoteID);
+                    note.NextConnectNote = FindNoteByID(note.NextFlickOrSlideNoteID);
                 }
                 if (note.PrevFlickOrSlideNoteID != EntityID.Invalid) {
-                    note.PrevFlickOrSlideNote = FindNoteByID(note.PrevFlickOrSlideNoteID);
+                    note.PrevConnectNote = FindNoteByID(note.PrevFlickOrSlideNoteID);
+                }
+            }
+            // When a note is both hold end and flick mid/end (allow in older versions), hold takes precedence
+            foreach (var note in allNotes) {
+                if (!note.IsGamingNote) {
+                    continue;
                 }
                 if (note.HoldTargetID != EntityID.Invalid) {
-                    note.HoldTarget = FindNoteByID(note.HoldTargetID);
+                    var holdTarget = FindNoteByID(note.HoldTargetID);
+                    if (note < holdTarget) {
+                        Note.ConnectHold(note, holdTarget);
+                    } else {
+                        Note.ConnectHold(holdTarget, note);
+                    }
                 }
             }
         }

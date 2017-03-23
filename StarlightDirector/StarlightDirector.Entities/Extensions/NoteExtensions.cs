@@ -39,25 +39,19 @@ namespace StarlightDirector.Entities.Extensions {
         }
 
         internal static bool TryGetFlickGroupID(this Note note, out FlickGroupModificationResult modificationResult, out int knownGroupID, out Note groupStart) {
-            if ((!note.IsFlick && !note.IsSlide) || (note.IsHoldEnd && !note.HasNextFlickOrSlide)) {
+            if ((!note.IsFlick && !note.IsSlide) || (note.IsHoldEnd && !note.HasNextConnect)) {
                 knownGroupID = EntityID.Invalid;
                 modificationResult = FlickGroupModificationResult.Declined;
                 groupStart = null;
                 return false;
             }
             var groupItemCount = 0;
-            var temp = note;
-            // Compiler trick.
-            groupStart = temp;
-            while (temp != null) {
+            groupStart = note;
+            for (var temp = note.PrevConnectNote; temp != null && !temp.IsHoldStart; temp = temp.PrevConnectNote) {
                 groupStart = temp;
-                temp = temp.PrevFlickOrSlideNote;
                 ++groupItemCount;
             }
-            temp = note;
-            ++groupItemCount;
-            while (temp.HasNextFlickOrSlide) {
-                temp = temp.NextFlickOrSlideNote;
+            for (var temp = note; temp != null; temp = temp.NextConnectNote) {
                 ++groupItemCount;
             }
             if (groupItemCount < 2) {
